@@ -8,6 +8,70 @@ Real-time dashboard UI for [sudo-trade](https://github.com/myselfshravan/sudo-tr
 
 ![Dashboard — Detailed debate view with agent analysis](demo/screenshot_2.png)
 
+## Proxy Config
+
+Proxy `/api/*` to the engine. Example Next.js `next.config.js`:
+
+```js
+async rewrites() {
+  return [
+    { source: '/api/:path*', destination: 'http://localhost:8080/:path*' },
+  ];
+}
+```
+
+Or call `http://localhost:8080` directly — CORS is enabled on the engine.
+
+---
+
+## Operating Modes
+
+### Autopilot (auto-execute)
+
+Set `AGENT_AUTO_EXECUTE=true` in the engine's `.env`. The pipeline runs autonomously:
+
+```
+Research → Screen → Debate (bull vs bear) → Consensus → Analyze → Execute
+```
+
+Trades execute without human approval. Dashboard is a monitoring view — watch agents work, see trades execute, track P&L in real-time.
+
+### Manual Mode (human-in-the-loop)
+
+Set `AGENT_AUTO_EXECUTE=false`. Agents still research, screen, debate, and analyze — but trades queue for approval.
+
+**UI controls for manual mode:**
+
+| Action | Endpoint | Description |
+|---|---|---|
+| View pending trades | `GET /pending` | List signals awaiting approval |
+| Approve a trade | `POST /trade/approve/{idx}` | Execute the trade at index |
+| Reject a trade | `POST /trade/reject/{idx}` | Discard the signal |
+| Trigger research | `POST /task` `{"type":"research"}` | Scan news/filings |
+| Trigger screening | `POST /task` `{"type":"screen"}` | Find top stock picks |
+| Trigger debate | `POST /task` `{"type":"debate","symbols":["RELIANCE"]}` | Start bull vs bear |
+| Trigger analysis | `POST /task` `{"type":"analyze","symbols":["RELIANCE"]}` | Run sentiment analysis |
+
+### Force Active Mode
+
+Set `AGENT_FORCE_ACTIVE=true` to run outside market hours (weekends, holidays, after 3:30 PM). Useful for paper trading practice.
+
+---
+
+## Engine Configuration (`.env`)
+
+| Variable | Default | Description |
+|---|---|---|
+| `AGENT_AUTO_EXECUTE` | `false` | Auto-execute trades or queue for approval |
+| `AGENT_FORCE_ACTIVE` | `false` | Run outside market hours |
+| `EXECUTION_INITIAL_CAPITAL` | `100000` | Starting paper capital (INR) |
+| `AGENT_DAILY_BUDGET_USD` | `5.0` | Daily LLM spend limit |
+| `API_HOST` | `0.0.0.0` | Engine API host |
+| `API_PORT` | `8080` | Engine API port |
+| `SUDO_TRADE_MODE` | `paper` | `paper` or `live` |
+
+---
+
 ## Engine API
 
 The dashboard consumes the trading engine HTTP API at `http://localhost:8080`.
@@ -51,27 +115,27 @@ Market phases: `pre_market` | `opening` | `morning` | `afternoon` | `closing` | 
 
 #### GET `/portfolio`
 
-Capital, positions, realized P&L, trade history.
+Capital, positions, realized P&L, trade history. State persists across engine restarts.
 
 ```json
 {
-  "capital": 500000.0,
+  "capital": 1039921.18,
   "positions": {
-    "RELIANCE": { "qty": 10, "avg_price": 2850.50 }
+    "LUPIN": { "qty": 122, "avg_price": 2289.07 }
   },
-  "pnl": 1250.75,
+  "pnl": 566578.78,
   "trades": [
     {
       "order_id": "PAPER-A1B2C3D4",
-      "symbol": "RELIANCE",
+      "symbol": "LUPIN",
       "action": "BUY",
-      "quantity": 10,
-      "fill_price": 2850.50,
+      "quantity": 21,
+      "fill_price": 2285.80,
       "timestamp": "2026-03-16T14:30:45.123456",
-      "capital_after": 471495.0
+      "capital_after": 451998.20
     }
   ],
-  "total_trades": 5
+  "total_trades": 66
 }
 ```
 
@@ -103,26 +167,37 @@ Signal value range: `-1.0` (very bearish) to `1.0` (very bullish).
 
 #### GET `/consensus/{symbol}`
 
-Debate verdict for a specific stock.
+Debate verdict for a specific stock. Contains full bull/bear argument history.
 
 ```json
 {
-  "symbol": "RELIANCE",
+  "symbol": "LUPIN",
   "verdict": "buy",
-  "confidence": 0.85,
-  "bull_score": 8.5,
-  "bear_score": 2.0,
-  "reasoning": "Bull case stronger on fundamentals",
+  "confidence": 0.72,
+  "bull_score": 0.78,
+  "bear_score": 0.48,
+  "reasoning": "Bull case presents more specific, verifiable evidence...",
   "positions": [
     {
       "agent_name": "debater_bull",
       "stance": "bull",
-      "argument": "Strong fundamentals, positive momentum",
-      "confidence": 0.90,
-      "evidence": ["Q3 earnings beat", "Sector rotation bullish"],
+      "argument": "Lupin presents a compelling turnaround...",
+      "confidence": 0.78,
+      "evidence": ["USFDA facility clearance", "Pipeline of 150+ ANDAs"],
+      "rebuttal_to": "",
+      "round": 0
+    },
+    {
+      "agent_name": "debater_bear",
+      "stance": "bear",
+      "argument": "Persistent regulatory overhangs...",
+      "confidence": 0.72,
+      "evidence": ["FDA warning letters", "US pricing erosion 8-12%"],
+      "rebuttal_to": "",
       "round": 0
     }
-  ]
+  ],
+  "timestamp": "2026-03-16T15:28:29.450430"
 }
 ```
 
@@ -174,7 +249,7 @@ LLM cost tracking — per agent and daily total.
 
 #### POST `/task`
 
-Submit a task to the agent pipeline.
+Submit a task to the agent pipeline. Use from the UI to manually trigger work.
 
 **Request:**
 ```json
@@ -184,7 +259,14 @@ Submit a task to the agent pipeline.
 }
 ```
 
-**Response (202):**
+| Type | What it does |
+|---|---|
+| `research` | Scan news, filings, social for symbols (or all if empty) |
+| `screen` | Quantitative + LLM ranking to find top picks |
+| `debate` | Start bull vs bear debate on given symbols |
+| `analyze` | Run sentiment + technical analysis on symbols |
+
+**Response (200):**
 ```json
 {
   "status": "accepted",
@@ -263,7 +345,7 @@ Actions: `buy` | `sell` | `hold` | `short` | `cover`
 
 **Signal**: `{type, source, symbol, value, confidence, reasoning, timestamp}`
 
-**ConsensusResult**: `{symbol, verdict, confidence, bull_score, bear_score, reasoning, positions}`
+**ConsensusResult**: `{symbol, verdict, confidence, bull_score, bear_score, reasoning, positions, timestamp}`
 
 ---
 
@@ -277,23 +359,20 @@ Status codes: `200` OK, `202` Accepted, `400` Bad Request, `404` Not Found
 
 ---
 
-## Setup
+## Polling vs WebSocket
 
-```bash
-# The engine must be running first
-cd ../sudo-trade
-uv run python -m src
+- **WebSocket** (`/ws`): real-time feeds — debates, trade executions, phase changes. Best for live activity panels.
+- **HTTP polling**: state snapshots — `/status`, `/portfolio`, `/pending`, `/cost`. Poll every 5-10s.
 
-# Then start the dashboard (port TBD)
-cd dashboard
-# ... UI setup here
-```
+Recommended: connect WebSocket on page load for live events, poll `/status` and `/portfolio` on intervals for state sync.
+
+---
 
 ## Architecture
 
 ```
 sudo-trade (engine)        sudo-trade-dashboard (UI)
-:8080 HTTP + WS  <-------->  :3000 (or wherever)
+:8080 HTTP + WS  <-------->  :3000
                     CORS
 ```
 
