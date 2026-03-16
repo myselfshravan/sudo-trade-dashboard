@@ -2,6 +2,12 @@
 
 Real-time dashboard UI for [sudo-trade](https://github.com/myselfshravan/sudo-trade) — AI-powered algorithmic trading system for Indian markets.
 
+## Screenshots
+
+![Dashboard — Debate Arena with bull/bear arguments and consensus](demo/screenshot_1.png)
+
+![Dashboard — Detailed debate view with agent analysis](demo/screenshot_2.png)
+
 ## Engine API
 
 The dashboard consumes the trading engine HTTP API at `http://localhost:8080`.
