@@ -1,78 +1,174 @@
-# sudo-trade-dashboard
+<div align="center">
 
-Real-time dashboard UI for [sudo-trade](https://github.com/myselfshravan/sudo-trade) — AI-powered algorithmic trading system for Indian markets.
+# sudo-trade dashboard
 
-## Screenshots
+**Real-time command center for an AI-powered trading system**
 
-![Dashboard — Debate Arena with bull/bear arguments and consensus](demo/screenshot_1.png)
+Watch autonomous agents research, debate, and trade Indian markets — live.
 
-![Dashboard — Detailed debate view with agent analysis](demo/screenshot_2.png)
+[![React](https://img.shields.io/badge/React_18-20232A?style=for-the-badge&logo=react&logoColor=61DAFB)](https://react.dev)
+[![TypeScript](https://img.shields.io/badge/TypeScript-3178C6?style=for-the-badge&logo=typescript&logoColor=white)](https://www.typescriptlang.org)
+[![Tailwind](https://img.shields.io/badge/Tailwind_CSS-0F172A?style=for-the-badge&logo=tailwindcss&logoColor=38BDF8)](https://tailwindcss.com)
+[![Vite](https://img.shields.io/badge/Vite-646CFF?style=for-the-badge&logo=vite&logoColor=white)](https://vitejs.dev)
+[![Framer Motion](https://img.shields.io/badge/Framer_Motion-0055FF?style=for-the-badge&logo=framer&logoColor=white)](https://www.framer.com/motion)
 
-## Proxy Config
+</div>
 
-Proxy `/api/*` to the engine. Example Next.js `next.config.js`:
+---
 
-```js
-async rewrites() {
-  return [
-    { source: '/api/:path*', destination: 'http://localhost:8080/:path*' },
-  ];
-}
+![Dashboard — AI agents debating bull vs bear case with live consensus scoring](demo/screenshot_1.png)
+
+![Dashboard — Full debate view with agent arguments, evidence, and verdict](demo/screenshot_2.png)
+
+---
+
+## What is this?
+
+This is the **frontend** for [sudo-trade](https://github.com/myselfshravan/sudo-trade) — a multi-agent AI trading system where LLM-powered agents autonomously research stocks, debate bull vs bear cases, reach consensus, and execute trades on Indian markets (NSE/BSE).
+
+The dashboard is a real-time window into that system. Think Bloomberg Terminal meets AI agent observatory.
+
+> **Note:** This UI requires the sudo-trade backend engine running. The engine is private — this dashboard alone won't do anything.
+
+---
+
+## Features
+
+### System Pulse — Left Panel
+- **Agent state monitoring** — see each AI agent (researcher, screener, debater, analyst, executor) with live status indicators and animated pulse dots
+- **Market phase tracker** — visual 7-phase progress bar following NSE trading hours (Pre-Market → Opening → Morning → Afternoon → Closing → Post-Market → Closed)
+- **Active debates** — accent-colored tags showing which stocks are currently being debated
+
+### Debate Arena — Center Panel
+- **Live bull vs bear arguments** — watch AI agents argue for and against a stock in real-time with multi-round rebuttals
+- **Confidence meter** — vertical bar chart showing bull/bear score ratio with spring-physics animations
+- **Evidence tags** — each argument backed by specific evidence (FDA clearances, earnings data, sector trends)
+- **Consensus verdict** — final AI judge decision (strong_buy / buy / hold / sell / strong_sell) with confidence score and reasoning
+- **Symbol tabs** — switch between multiple concurrent debates
+
+### Ledger — Right Panel
+- **Live portfolio** — capital, positions, P&L with INR currency formatting
+- **Pending trade queue** — approve or reject AI-generated trade signals with one tap
+- **LLM cost tracker** — daily budget usage bar showing spend across all agents
+- **Trade log** — scrollable history of executed trades
+
+### Real-Time Everything
+- **WebSocket** connection with auto-reconnect for instant event streaming
+- **Polling fallback** — TanStack Query with 3-5s intervals for state sync
+- **Framer Motion** animations — spring-physics argument slides, pulse dots, layout transitions
+- **WS status indicator** — green dot = LIVE, red = DISCONNECTED
+
+---
+
+## Architecture
+
+```
+                         +-----------------------+
+                         |   sudo-trade engine   |
+                         |   (private backend)   |
+                         |                       |
+                         |  6 AI Agents:         |
+                         |  - Researcher          |
+                         |  - Screener            |
+                         |  - Debater (Bull)      |
+                         |  - Debater (Bear)      |
+                         |  - Analyst             |
+                         |  - Executor            |
+                         |                       |
+                         |  :8080 HTTP + WS      |
+                         +----------+------------+
+                                    |
+                           CORS / Vite Proxy
+                                    |
+                         +----------v------------+
+                         |  sudo-trade-dashboard |
+                         |   (this repo)         |
+                         |                       |
+                         |  React + TypeScript   |
+                         |  Tailwind + shadcn/ui |
+                         |  Framer Motion        |
+                         |  TanStack Query       |
+                         |                       |
+                         |  :3001 Dev Server     |
+                         +-----------------------+
 ```
 
-Or call `http://localhost:8080` directly — CORS is enabled on the engine.
+The engine handles all intelligence. The dashboard is a read-only observer + trade approval interface.
+
+---
+
+## Agent Pipeline
+
+The AI agents run a structured pipeline during market hours:
+
+```
+Research (news, filings, social)
+    |
+    v
+Screen (quantitative + LLM ranking)
+    |
+    v
+Debate (bull agent vs bear agent, multi-round)
+    |
+    v
+Consensus (neutral judge scores arguments)
+    |
+    v
+Analyze (sentiment + technical signals)
+    |
+    v
+Execute (paper or live, with human approval gate)
+```
+
+Each step is visible in the dashboard in real-time.
+
+---
+
+## Tech Stack
+
+| Layer | Tech |
+|---|---|
+| Framework | React 18, TypeScript 5.8 |
+| Build | Vite 5 |
+| Styling | Tailwind CSS 3.4, shadcn/ui (35+ Radix primitives) |
+| Animations | Framer Motion 12 |
+| Data | TanStack Query 5, native WebSocket |
+| Charts | Recharts 2 |
+| Icons | Lucide React |
+| Testing | Vitest, Playwright, Testing Library |
 
 ---
 
 ## Operating Modes
 
-### Autopilot (auto-execute)
-
-Set `AGENT_AUTO_EXECUTE=true` in the engine's `.env`. The pipeline runs autonomously:
-
-```
-Research → Screen → Debate (bull vs bear) → Consensus → Analyze → Execute
-```
-
-Trades execute without human approval. Dashboard is a monitoring view — watch agents work, see trades execute, track P&L in real-time.
-
-### Manual Mode (human-in-the-loop)
-
-Set `AGENT_AUTO_EXECUTE=false`. Agents still research, screen, debate, and analyze — but trades queue for approval.
-
-**UI controls for manual mode:**
-
-| Action | Endpoint | Description |
+| Mode | Config | Dashboard Behavior |
 |---|---|---|
-| View pending trades | `GET /pending` | List signals awaiting approval |
-| Approve a trade | `POST /trade/approve/{idx}` | Execute the trade at index |
-| Reject a trade | `POST /trade/reject/{idx}` | Discard the signal |
-| Trigger research | `POST /task` `{"type":"research"}` | Scan news/filings |
-| Trigger screening | `POST /task` `{"type":"screen"}` | Find top stock picks |
-| Trigger debate | `POST /task` `{"type":"debate","symbols":["RELIANCE"]}` | Start bull vs bear |
-| Trigger analysis | `POST /task` `{"type":"analyze","symbols":["RELIANCE"]}` | Run sentiment analysis |
-
-### Force Active Mode
-
-Set `AGENT_FORCE_ACTIVE=true` to run outside market hours (weekends, holidays, after 3:30 PM). Useful for paper trading practice.
+| **Autopilot** | `AGENT_AUTO_EXECUTE=true` | Pure monitoring — watch agents trade autonomously |
+| **Manual** | `AGENT_AUTO_EXECUTE=false` | Approve/reject trades from the Ledger panel |
+| **Force Active** | `AGENT_FORCE_ACTIVE=true` | Run outside market hours (weekends, holidays) |
 
 ---
 
-## Engine Configuration (`.env`)
+## Setup
 
-| Variable | Default | Description |
-|---|---|---|
-| `AGENT_AUTO_EXECUTE` | `false` | Auto-execute trades or queue for approval |
-| `AGENT_FORCE_ACTIVE` | `false` | Run outside market hours |
-| `EXECUTION_INITIAL_CAPITAL` | `100000` | Starting paper capital (INR) |
-| `AGENT_DAILY_BUDGET_USD` | `5.0` | Daily LLM spend limit |
-| `API_HOST` | `0.0.0.0` | Engine API host |
-| `API_PORT` | `8080` | Engine API port |
-| `SUDO_TRADE_MODE` | `paper` | `paper` or `live` |
+```bash
+# Clone
+git clone https://github.com/myselfshravan/sudo-trade-dashboard.git
+cd sudo-trade-dashboard
+
+# Install
+bun install   # or npm install
+
+# Dev server (port 3001)
+bun dev       # or npm run dev
+```
+
+Set `VITE_API_URL` in `.env` to point to your engine instance, or the Vite proxy will route `/api/*` to the configured target.
 
 ---
 
-## Engine API
+<details>
+<summary><h2>Engine API Reference</h2></summary>
 
 The dashboard consumes the trading engine HTTP API at `http://localhost:8080`.
 
@@ -115,7 +211,7 @@ Market phases: `pre_market` | `opening` | `morning` | `afternoon` | `closing` | 
 
 #### GET `/portfolio`
 
-Capital, positions, realized P&L, trade history. State persists across engine restarts.
+Capital, positions, realized P&L, trade history.
 
 ```json
 {
@@ -203,8 +299,6 @@ Debate verdict for a specific stock. Contains full bull/bear argument history.
 
 Verdicts: `strong_buy` | `buy` | `hold` | `sell` | `strong_sell`
 
-Returns `404` with `{"error": "no consensus for SYMBOL"}` if no debate completed.
-
 ---
 
 #### GET `/pending`
@@ -249,7 +343,7 @@ LLM cost tracking — per agent and daily total.
 
 #### POST `/task`
 
-Submit a task to the agent pipeline. Use from the UI to manually trigger work.
+Submit a task to the agent pipeline.
 
 **Request:**
 ```json
@@ -261,12 +355,12 @@ Submit a task to the agent pipeline. Use from the UI to manually trigger work.
 
 | Type | What it does |
 |---|---|
-| `research` | Scan news, filings, social for symbols (or all if empty) |
+| `research` | Scan news, filings, social for symbols |
 | `screen` | Quantitative + LLM ranking to find top picks |
 | `debate` | Start bull vs bear debate on given symbols |
 | `analyze` | Run sentiment + technical analysis on symbols |
 
-**Response (200):**
+**Response:**
 ```json
 {
   "status": "accepted",
@@ -280,19 +374,9 @@ Submit a task to the agent pipeline. Use from the UI to manually trigger work.
 
 Approve pending trade at index for execution.
 
-**Response (200):** The approved trade signal object.
-
-**Response (404):** `{"error": "no pending signal at index"}`
-
----
-
 #### POST `/trade/reject/{idx}`
 
 Reject pending trade at index.
-
-**Response (200):** `{"status": "rejected", "symbol": "RELIANCE"}`
-
-**Response (404):** `{"error": "no pending signal at index"}`
 
 ---
 
@@ -300,9 +384,7 @@ Reject pending trade at index.
 
 Real-time event stream. Connect to `ws://localhost:8080/ws`.
 
-#### Events (server to client)
-
-All events:
+All events follow this shape:
 ```json
 {
   "event": "event_name",
@@ -312,68 +394,23 @@ All events:
 ```
 
 | Event | Data | Description |
-|-------|------|-------------|
+|---|---|---|
 | `agent:research:complete` | `{symbols, findings}` | Research scan finished |
 | `agent:screened` | `{symbols}` | Stock screening picks |
-| `agent:debate:argument` | `{agent_name, stance, symbol, argument, confidence, evidence, round}` | Debate argument from bull/bear |
+| `agent:debate:argument` | `{agent_name, stance, symbol, argument, confidence, evidence, round}` | Debate argument |
 | `agent:debate:complete` | `{symbol, consensus}` | Debate concluded with verdict |
 | `agent:analysis:complete` | `{symbols, signals}` | Analysis signals generated |
 | `agent:trade:requested` | `{signal}` | Trade signal from master |
-| `agent:trade:executed` | `{result}` | Trade executed (paper/live) |
+| `agent:trade:executed` | `{result}` | Trade executed |
 | `agent:trade:pending` | `{signal, pending_count}` | Trade queued for approval |
 | `schedule:phase_change` | `{phase, old_phase, time}` | Market phase transition |
 
-#### Commands (client to server)
-
-```json
-{
-  "type": "task",
-  "task_type": "research|screen|debate|analyze",
-  "symbols": ["RELIANCE"]
-}
-```
+</details>
 
 ---
 
-### Data Types
+<div align="center">
 
-**TradeSignal**: `{action, symbol, quantity, confidence, reasoning, style, price_target, stop_loss, signals_used, metadata}`
+Built for [sudo-trade](https://github.com/myselfshravan/sudo-trade)
 
-Actions: `buy` | `sell` | `hold` | `short` | `cover`
-
-**Trade**: `{order_id, symbol, action, quantity, fill_price, timestamp, capital_after}`
-
-**Signal**: `{type, source, symbol, value, confidence, reasoning, timestamp}`
-
-**ConsensusResult**: `{symbol, verdict, confidence, bull_score, bear_score, reasoning, positions, timestamp}`
-
----
-
-### Error Responses
-
-```json
-{"error": "description"}
-```
-
-Status codes: `200` OK, `202` Accepted, `400` Bad Request, `404` Not Found
-
----
-
-## Polling vs WebSocket
-
-- **WebSocket** (`/ws`): real-time feeds — debates, trade executions, phase changes. Best for live activity panels.
-- **HTTP polling**: state snapshots — `/status`, `/portfolio`, `/pending`, `/cost`. Poll every 5-10s.
-
-Recommended: connect WebSocket on page load for live events, poll `/status` and `/portfolio` on intervals for state sync.
-
----
-
-## Architecture
-
-```
-sudo-trade (engine)        sudo-trade-dashboard (UI)
-:8080 HTTP + WS  <-------->  :3000
-                    CORS
-```
-
-The engine handles all trading logic. The dashboard is a read-only view + trade approval interface.
+</div>
