@@ -1,5 +1,9 @@
 const API_BASE = import.meta.env.VITE_API_URL || (import.meta.env.DEV ? "/api" : "https://sudo-trade-api.droidvm.dev");
-const WS_BASE = (import.meta.env.VITE_API_URL || "https://sudo-trade-api.droidvm.dev").replace(/^http/, "ws");
+const WS_BASE = import.meta.env.VITE_API_URL
+  ? import.meta.env.VITE_API_URL.replace(/^http/, "ws")
+  : import.meta.env.DEV
+    ? `ws://${window.location.hostname}:8008`
+    : "wss://sudo-trade-api.droidvm.dev";
 
 export interface AgentState {
   state: "idle" | "running" | "waiting" | "error" | "stopped" | "rate_limited";

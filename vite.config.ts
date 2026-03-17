@@ -13,7 +13,7 @@ export default defineConfig(({ mode }) => ({
     },
     proxy: {
       "/api": {
-        target: "https://sudo-trade-api.droidvm.dev",
+        target: "http://localhost:8008",
         changeOrigin: true,
         rewrite: (path) => path.replace(/^\/api/, ""),
       },
