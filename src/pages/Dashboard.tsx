@@ -7,7 +7,7 @@ import { useStatus, useConsensus, useWebSocket } from "@/hooks/use-trading-data"
 
 const Dashboard = () => {
   const { data: status } = useStatus();
-  const { connected, events } = useWebSocket();
+  const { events } = useWebSocket();
   const [selectedSymbol, setSelectedSymbol] = useState<string | null>(null);
   const [phaseFlash, setPhaseFlash] = useState(false);
   const { data: consensus } = useConsensus(selectedSymbol);
@@ -31,7 +31,7 @@ const Dashboard = () => {
   }, [events]);
 
   return (
-    <div className="h-screen flex flex-col overflow-hidden bg-background relative">
+    <div className="h-full flex overflow-hidden bg-background relative">
       {/* Phase Flash Overlay */}
       <AnimatePresence>
         {phaseFlash && (
@@ -45,41 +45,19 @@ const Dashboard = () => {
         )}
       </AnimatePresence>
 
-      {/* Top Bar */}
-      <div className="h-8 border-b border-border flex items-center px-4 justify-between shrink-0">
-        <div className="flex items-center gap-3">
-          <span className="font-mono text-[11px] font-bold tracking-tighter text-foreground">
-            SUDO_TRADE
-          </span>
-          <span className="font-mono text-[10px] text-muted-foreground tracking-wider">
-            SYSTEM_STATUS: {status?.master_state?.toUpperCase() || "—"} // MARKET_PHASE:{" "}
-            {status?.phase?.toUpperCase() || "—"}
-          </span>
-        </div>
-        <div className="flex items-center gap-2">
-          <div className={`h-1.5 w-1.5 rounded-full ${connected ? "bg-bull" : "bg-bear"}`} />
-          <span className="font-mono text-[9px] text-muted-foreground">
-            {connected ? "WS:LIVE" : "WS:DISCONNECTED"}
-          </span>
-        </div>
-      </div>
+      {/* Left Sidebar - System Pulse */}
+      <SystemPulse />
 
-      {/* Main Layout */}
-      <div className="flex flex-1 overflow-hidden">
-        {/* Left Sidebar - System Pulse */}
-        <SystemPulse />
+      {/* Center - Arena */}
+      <DebateArena
+        consensus={consensus || null}
+        activeDebates={activeDebates}
+        selectedSymbol={selectedSymbol}
+        onSelectSymbol={setSelectedSymbol}
+      />
 
-        {/* Center - Arena */}
-        <DebateArena
-          consensus={consensus || null}
-          activeDebates={activeDebates}
-          selectedSymbol={selectedSymbol}
-          onSelectSymbol={setSelectedSymbol}
-        />
-
-        {/* Right Sidebar - Ledger */}
-        <Ledger />
-      </div>
+      {/* Right Sidebar - Ledger */}
+      <Ledger />
     </div>
   );
 };

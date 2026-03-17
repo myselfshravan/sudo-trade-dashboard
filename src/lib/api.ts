@@ -6,7 +6,60 @@ const WS_BASE = import.meta.env.VITE_API_URL
     : "wss://sudo-trade-api.droidvm.dev";
 
 export interface AgentState {
-  state: "idle" | "running" | "waiting" | "error" | "stopped" | "rate_limited";
+  state: "idle" | "running" | "waiting" | "paused" | "error" | "stopped" | "rate_limited";
+}
+
+export interface AgentInfo {
+  state: string;
+  profile: Record<string, unknown>;
+}
+
+export interface AgentSession {
+  facts: Record<string, unknown>;
+  messages: { role: string; content: string }[];
+  message_count: number;
+}
+
+export interface AgentHistoryEntry {
+  type: string;
+  timestamp: string;
+  agent: string;
+  symbol?: string;
+  confidence?: number;
+  [key: string]: unknown;
+}
+
+export type TradingMode = "equity_intraday" | "equity_delivery" | "fno" | "all";
+
+export interface ConfigData {
+  TRADING_MODE: TradingMode;
+  AGENT_FORCE_ACTIVE: boolean;
+  AGENT_AUTO_EXECUTE: boolean;
+  AGENT_DEBATE_ROUNDS: number;
+  AGENT_DAILY_BUDGET_USD: number;
+  AGENT_PER_AGENT_BUDGET_USD: number;
+  AGENT_MASTER_BUDGET_USD: number;
+  AGENT_MIN_CONFIDENCE: number;
+  [key: string]: unknown;
+}
+
+export interface WatchlistData {
+  symbols: string[];
+}
+
+export interface TimelineEvent {
+  event: string;
+  time: string;
+  data: Record<string, unknown>;
+}
+
+export interface QuoteData {
+  symbol: string;
+  price: number;
+  volume: number;
+  timestamp: string;
+  exchange: string;
+  extra: Record<string, unknown>;
 }
 
 export interface CostData {
@@ -116,6 +169,64 @@ export const api = {
     fetch(`${API_BASE}/trade/approve/${idx}`, { method: "POST" }).then((r) => r.json()),
   rejectTrade: (idx: number) =>
     fetch(`${API_BASE}/trade/reject/${idx}`, { method: "POST" }).then((r) => r.json()),
+
+  // Config
+  getConfig: () => fetchJSON<ConfigData>("/config"),
+  postConfig: (config: Partial<ConfigData>) =>
+    fetch(`${API_BASE}/config`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(config),
+    }).then((r) => r.json()),
+
+  // Watchlist
+  getWatchlist: () => fetchJSON<WatchlistData>("/watchlist"),
+  setWatchlist: (symbols: string[]) =>
+    fetch(`${API_BASE}/watchlist`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ symbols }),
+    }).then((r) => r.json()),
+  addToWatchlist: (symbol: string) =>
+    fetch(`${API_BASE}/watchlist/${encodeURIComponent(symbol)}`, { method: "PUT" }).then((r) => r.json()),
+  removeFromWatchlist: (symbol: string) =>
+    fetch(`${API_BASE}/watchlist/${encodeURIComponent(symbol)}`, { method: "DELETE" }).then((r) => r.json()),
+
+  // Agents
+  getAgents: () => fetchJSON<Record<string, AgentInfo>>("/agents"),
+  getAgentProfile: (name: string) => fetchJSON<Record<string, unknown>>(`/agents/${name}/profile`),
+  getAgentHistory: (name: string, params?: { type?: string; symbol?: string; limit?: number }) => {
+    const qs = new URLSearchParams();
+    if (params?.type) qs.set("type", params.type);
+    if (params?.symbol) qs.set("symbol", params.symbol);
+    if (params?.limit) qs.set("limit", String(params.limit));
+    const q = qs.toString();
+    return fetchJSON<AgentHistoryEntry[]>(`/agents/${name}/history${q ? `?${q}` : ""}`);
+  },
+  getAgentSession: (name: string) => fetchJSON<AgentSession>(`/agents/${name}/session`),
+  pauseAgent: (name: string) =>
+    fetch(`${API_BASE}/agents/${name}/pause`, { method: "POST" }).then((r) => r.json()),
+  resumeAgent: (name: string) =>
+    fetch(`${API_BASE}/agents/${name}/resume`, { method: "POST" }).then((r) => r.json()),
+
+  // Timeline
+  getTimeline: (params?: { type?: string; from?: string; to?: string; limit?: number }) => {
+    const qs = new URLSearchParams();
+    if (params?.type) qs.set("type", params.type);
+    if (params?.from) qs.set("from", params.from);
+    if (params?.to) qs.set("to", params.to);
+    if (params?.limit) qs.set("limit", String(params.limit));
+    const q = qs.toString();
+    return fetchJSON<TimelineEvent[]>(`/timeline${q ? `?${q}` : ""}`);
+  },
+
+  // Quotes
+  getQuotes: (symbols: string[]) =>
+    fetchJSON<QuoteData[]>(`/quotes?symbols=${symbols.map(encodeURIComponent).join(",")}`),
+
+  // Positions
+  closePosition: (symbol: string) =>
+    fetch(`${API_BASE}/positions/${encodeURIComponent(symbol)}/close`, { method: "POST" }).then((r) => r.json()),
 };
 
 export function createWS(onEvent: (event: WSEvent) => void): WebSocket | null {

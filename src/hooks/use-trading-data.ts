@@ -1,4 +1,4 @@
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useRef, useState, useCallback } from "react";
 import { api, createWS, type WSEvent } from "@/lib/api";
 
@@ -36,6 +36,89 @@ export function useConsensus(symbol: string | null) {
     enabled: !!symbol,
     refetchInterval: 5000,
     retry: 0,
+  });
+}
+
+export function useConfig() {
+  return useQuery({
+    queryKey: ["config"],
+    queryFn: api.getConfig,
+    refetchInterval: 30000,
+    retry: 1,
+  });
+}
+
+export function useSaveConfig() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: api.postConfig,
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["config"] }),
+  });
+}
+
+export function useWatchlist() {
+  return useQuery({
+    queryKey: ["watchlist"],
+    queryFn: api.getWatchlist,
+    refetchInterval: 10000,
+    retry: 1,
+  });
+}
+
+export function useAgents() {
+  return useQuery({
+    queryKey: ["agents"],
+    queryFn: api.getAgents,
+    refetchInterval: 5000,
+    retry: 1,
+  });
+}
+
+export function useAgentProfile(name: string | null) {
+  return useQuery({
+    queryKey: ["agent-profile", name],
+    queryFn: () => (name ? api.getAgentProfile(name) : null),
+    enabled: !!name,
+    refetchInterval: 10000,
+    retry: 0,
+  });
+}
+
+export function useAgentSession(name: string | null) {
+  return useQuery({
+    queryKey: ["agent-session", name],
+    queryFn: () => (name ? api.getAgentSession(name) : null),
+    enabled: !!name,
+    refetchInterval: 10000,
+    retry: 0,
+  });
+}
+
+export function useAgentHistory(name: string | null, params?: { type?: string; symbol?: string; limit?: number }) {
+  return useQuery({
+    queryKey: ["agent-history", name, params],
+    queryFn: () => (name ? api.getAgentHistory(name, params) : null),
+    enabled: !!name,
+    refetchInterval: 10000,
+    retry: 0,
+  });
+}
+
+export function useTimeline(params?: { type?: string; from?: string; to?: string; limit?: number }) {
+  return useQuery({
+    queryKey: ["timeline", params],
+    queryFn: () => api.getTimeline(params),
+    refetchInterval: 10000,
+    retry: 1,
+  });
+}
+
+export function useSignals() {
+  return useQuery({
+    queryKey: ["signals"],
+    queryFn: api.getSignals,
+    refetchInterval: 10000,
+    retry: 1,
   });
 }
 
