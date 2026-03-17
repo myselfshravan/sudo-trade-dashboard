@@ -1,494 +1,315 @@
-# Dashboard Context — Backend API Contract
+# Dashboard Context — Backend API Contract (v2)
 
-> This document is the bridge between the backend (sudo-trade engine) and the frontend (React dashboard).
-> The dashboard agent should read this to understand every API endpoint, WebSocket event, data shape, and the trading pipeline.
+> Complete API reference for the React dashboard. 28 endpoints.
+> The engine runs on `localhost:8080`. Dashboard talks to it via HTTP + WebSocket.
 
-## Architecture
+## API Overview
 
-```
-React Dashboard (this repo)
-    ↕ HTTP + WebSocket
-Engine API (localhost:8080)
-    ↕ EventBus
-6 AI Agents + MasterAgent + MarketScheduler
-    ↕ LLM calls (Z.AI + Groq)
-Groww Broker (market data) + PaperExecutor (simulated trades)
-```
-
-The dashboard is read + control. It reads system state and controls trade approval/rejection + manual task triggers.
-
-## API Base URL
-
-- Dev: `http://localhost:8080` (or proxied via Vite as `/api`)
-- Prod: configurable via `VITE_API_URL` env var
+| Method | Path | What | Category |
+|--------|------|------|----------|
+| GET | `/status` | System state, agents, phase, cost | Read |
+| GET | `/portfolio` | Capital, positions, P&L, trades | Read |
+| GET | `/signals` | Analysis signals by symbol | Read |
+| GET | `/consensus/{symbol}` | Debate verdict | Read |
+| GET | `/pending` | Trades awaiting approval | Read |
+| GET | `/cost` | LLM cost report | Read |
+| GET | `/research` | Research findings by symbol | Read |
+| GET | `/config` | Current runtime config | Read |
+| GET | `/watchlist` | Current watchlist symbols | Read |
+| GET | `/timeline` | Persisted event history | Read |
+| GET | `/quotes` | Live market quotes | Read |
+| GET | `/agents` | All agents + state + profiles | Read |
+| GET | `/agents/{name}/profile` | Agent L0 memory stats | Read |
+| GET | `/agents/{name}/history` | Agent L2 event log | Read |
+| GET | `/agents/{name}/session` | Agent L1 session state | Read |
+| POST | `/task` | Submit task (research/screen/debate/analyze) | Control |
+| POST | `/config` | Update runtime config | Control |
+| POST | `/trade/approve/{idx}` | Approve pending trade | Control |
+| POST | `/trade/reject/{idx}` | Reject pending trade | Control |
+| POST | `/agents/{name}/pause` | Pause agent | Control |
+| POST | `/agents/{name}/resume` | Resume agent | Control |
+| POST | `/positions/{symbol}/close` | Close position | Control |
+| GET | `/watchlist` | Read watchlist | Watchlist |
+| POST | `/watchlist` | Replace watchlist | Watchlist |
+| PUT | `/watchlist/{symbol}` | Add to watchlist | Watchlist |
+| DELETE | `/watchlist/{symbol}` | Remove from watchlist | Watchlist |
+| GET | `/ws` | Real-time event stream | WebSocket |
 
 ---
 
-## REST Endpoints
+## Endpoint Details
 
 ### GET /status
-
-System-wide state. Poll every 3s.
-
 ```json
 {
-  "master_state": "idle",           // idle | running | error | stopped
-  "phase": "morning",               // pre_market | opening | morning | afternoon | closing | post_market | closed
+  "master_state": "idle",
+  "phase": "morning",
   "market_open": true,
   "active_debates": ["RELIANCE", "TCS"],
   "agents": {
-    "researcher":     { "state": "idle" },
-    "screener":       { "state": "running" },
-    "debater_bull":   { "state": "idle" },
-    "debater_bear":   { "state": "idle" },
-    "analyst":        { "state": "idle" },
+    "researcher": { "state": "idle" },
+    "screener": { "state": "paused" },
+    "debater_bull": { "state": "running" },
+    "debater_bear": { "state": "running" },
+    "analyst": { "state": "idle" },
     "executor_agent": { "state": "idle" }
   },
   "cost": {
     "daily_budget": 50.0,
     "total_cost_usd": 0.0632,
-    "agents": {
-      "researcher":   { "tokens": 4467, "cost_usd": 0.0029, "calls": 1 },
-      "debater_bull": { "tokens": 6170, "cost_usd": 0.0193, "calls": 4 },
-      "debater_bear": { "tokens": 7631, "cost_usd": 0.0255, "calls": 4 },
-      "master":       { "tokens": 7343, "cost_usd": 0.0156, "calls": 2 }
-    }
+    "agents": { "researcher": { "tokens": 4467, "cost_usd": 0.0029, "calls": 1 } }
   }
 }
 ```
+Agent states: `idle` | `running` | `waiting` | `paused` | `rate_limited` | `error` | `stopped`
 
 ### GET /portfolio
-
-Paper trading state. Poll every 5s.
-
 ```json
 {
   "capital": 87500.50,
-  "positions": {
-    "RELIANCE": { "qty": 10, "avg_price": 1250.75 },
-    "TCS":      { "qty": 5,  "avg_price": 3800.00 }
-  },
+  "positions": { "RELIANCE": { "qty": 10, "avg_price": 1250.75 } },
   "pnl": 3420.50,
-  "trades": [
-    {
-      "order_id": "PAPER-A1B2C3D4",
-      "symbol": "RELIANCE",
-      "action": "BUY",
-      "quantity": 10,
-      "fill_price": 1250.75,
-      "timestamp": "2026-03-16T09:32:15.123456",
-      "capital_after": 87493.50
-    }
-  ],
+  "trades": [{ "order_id": "PAPER-A1B2C3D4", "symbol": "RELIANCE", "action": "BUY", "quantity": 10, "fill_price": 1250.75, "timestamp": "2026-03-17T09:32:15", "capital_after": 87493.50 }],
   "total_trades": 12
 }
 ```
 
-### GET /signals
-
-Analysis signals grouped by symbol. Keys are `signals:{SYMBOL}`.
-
+### GET /config
 ```json
 {
-  "signals:RELIANCE": [
-    {
-      "type": "sentiment",
-      "source": "llm_sentiment",
-      "symbol": "RELIANCE",
-      "value": 0.65,           // -1.0 (bearish) to 1.0 (bullish)
-      "confidence": 0.82,      // 0.0 to 1.0
-      "reasoning": "Strong momentum with volume spike",
-      "timestamp": "2026-03-16T10:15:00",
-      "metadata": {
-        "action": "BUY",
-        "key_factors": ["revenue growth", "sector rotation"]
-      }
-    }
-  ]
+  "AGENT_FORCE_ACTIVE": false,
+  "AGENT_AUTO_EXECUTE": false,
+  "AGENT_DEBATE_ROUNDS": 2,
+  "AGENT_DAILY_BUDGET_USD": 50.0,
+  "AGENT_PER_AGENT_BUDGET_USD": 10.0,
+  "AGENT_MASTER_BUDGET_USD": 20.0,
+  "AGENT_MIN_CONFIDENCE": 0.6
 }
 ```
 
-### GET /consensus/{SYMBOL}
+### POST /config
+Update runtime config. Changes propagate to running agents immediately.
+```json
+{
+  "AGENT_FORCE_ACTIVE": true,
+  "AGENT_AUTO_EXECUTE": false,
+  "AGENT_DEBATE_ROUNDS": 3,
+  "AGENT_DAILY_BUDGET_USD": 100.0
+}
+```
+Response: `{ "status": "updated", "keys": ["AGENT_FORCE_ACTIVE", "AGENT_DEBATE_ROUNDS", ...] }`
 
-Debate verdict for a specific stock. Returns 404 if no debate happened.
+### GET /watchlist
+```json
+{ "symbols": ["RELIANCE", "TCS", "INFY", "SUZLON"] }
+```
 
+### POST /watchlist — replace entire watchlist
+```json
+{ "symbols": ["RELIANCE", "TCS", "SUZLON", "RVNL"] }
+```
+
+### PUT /watchlist/{symbol} — add to watchlist
+Response: `{ "status": "added", "symbol": "SUZLON", "watchlist": [...] }`
+
+### DELETE /watchlist/{symbol} — remove from watchlist
+Response: `{ "status": "removed", "symbol": "SUZLON", "watchlist": [...] }`
+
+### GET /agents
+All agents with state + memory profile stats.
+```json
+{
+  "researcher": { "state": "idle", "profile": { "total_researches": 5, "total_insights": 42 } },
+  "debater_bull": { "state": "paused", "profile": { "total_debates": 10, "wins": 6 } },
+  "master": { "state": "idle", "profile": { "total_decisions": 8 } }
+}
+```
+
+### GET /agents/{name}/profile — L0 stats
+```json
+{ "total_debates": 47, "avg_confidence": 0.72 }
+```
+
+### GET /agents/{name}/history — L2 event log
+Query: `?type=debate&symbol=RELIANCE&limit=20`
+```json
+[{ "type": "debate", "timestamp": "2026-03-17T10:15:00", "agent": "debater_bull", "symbol": "RELIANCE", "confidence": 0.82 }]
+```
+
+### GET /agents/{name}/session — L1 session
+```json
+{
+  "facts": { "last_research_count": 14 },
+  "messages": [{ "role": "assistant", "content": "Analysis shows..." }],
+  "message_count": 5
+}
+```
+
+### POST /agents/{name}/pause
+Response: `{ "status": "paused", "agent": "researcher" }`
+
+### POST /agents/{name}/resume
+Response: `{ "status": "resumed", "agent": "researcher" }`
+
+### GET /timeline — persisted event history
+Query: `?type=agent:debate:argument&from=2026-03-17T09:00&to=2026-03-17T15:30&limit=100`
+```json
+[{ "event": "agent:debate:argument", "time": "2026-03-17T10:15:00", "data": { "symbol": "RELIANCE", "position": {...} } }]
+```
+
+### GET /quotes — live market data
+Query: `?symbols=RELIANCE,TCS,INFY`
+```json
+[{ "symbol": "RELIANCE", "price": 1250.75, "volume": 1234567, "timestamp": "2026-03-17T10:15:00", "exchange": "NSE", "extra": { "ohlc": {...}, "day_change_perc": 1.2 } }]
+```
+
+### GET /consensus/{symbol}
 ```json
 {
   "symbol": "RELIANCE",
-  "verdict": "strong_buy",      // strong_buy | buy | hold | sell | strong_sell
+  "verdict": "strong_buy",
   "confidence": 0.78,
   "bull_score": 0.85,
   "bear_score": 0.45,
-  "reasoning": "Bull case compelling — strong earnings, sector tailwinds outweigh valuation concerns",
+  "reasoning": "Bull case compelling...",
   "positions": [
-    {
-      "agent_name": "debater_bull",
-      "stance": "bull",
-      "argument": "Reliance presents a compelling multi-decade...",
-      "confidence": 0.82,
-      "evidence": ["Q3 revenue +15%", "Jio subscriber growth", "Retail expansion"],
-      "round": 0
-    },
-    {
-      "agent_name": "debater_bear",
-      "stance": "bear",
-      "argument": "Reliance faces structural headwinds...",
-      "confidence": 0.68,
-      "evidence": ["O2C margins declining", "Debt-to-equity rising", "Regulatory risk"],
-      "round": 0
-    },
-    {
-      "agent_name": "debater_bull",
-      "stance": "bull",
-      "argument": "The bear's debt argument is misleading...",
-      "confidence": 0.85,
-      "evidence": ["Net debt actually decreased", "Cash flow covers interest 3x"],
-      "round": 1
-    },
-    {
-      "agent_name": "debater_bear",
-      "stance": "bear",
-      "argument": "Even accounting for cash flow...",
-      "confidence": 0.72,
-      "evidence": ["P/E at 28x vs sector avg 20x", "Capex risk in 5G"],
-      "round": 1
-    }
-  ],
-  "timestamp": "2026-03-16T09:45:00"
+    { "agent_name": "debater_bull", "stance": "bull", "argument": "...", "confidence": 0.82, "evidence": ["Q3 revenue +15%"], "round": 0 },
+    { "agent_name": "debater_bear", "stance": "bear", "argument": "...", "confidence": 0.68, "evidence": ["P/E at 28x"], "round": 0 },
+    { "agent_name": "debater_bull", "stance": "bull", "argument": "...", "confidence": 0.85, "evidence": ["..."], "round": 1 },
+    { "agent_name": "debater_bear", "stance": "bear", "argument": "...", "confidence": 0.72, "evidence": ["..."], "round": 1 }
+  ]
 }
 ```
 
 ### GET /pending
-
-Trades awaiting human approval (when `AGENT_AUTO_EXECUTE=false`).
-
 ```json
 {
-  "pending": [
-    {
-      "action": "buy",
-      "symbol": "RELIANCE",
-      "quantity": 0,              // 0 = ExecutionAgent will decide sizing
-      "confidence": 0.78,
-      "reasoning": "Strong bull consensus with high conviction",
-      "style": "swing",          // intraday | swing | positional
-      "product": "CNC",          // CNC | MIS | NRML
-      "exchange": "NSE",
-      "price_target": null,
-      "stop_loss": null,
-      "timestamp": "2026-03-16T10:00:00",
-      "signals_used": [...],     // array of Signal objects that led to this
-      "metadata": {}
-    }
-  ]
-}
-```
-
-### GET /cost
-
-LLM cost tracking (same data as in /status, dedicated endpoint).
-
-```json
-{
-  "daily_budget": 50.0,
-  "total_cost_usd": 0.0632,
-  "agents": {
-    "researcher":   { "tokens": 4467, "cost_usd": 0.0029, "calls": 1 },
-    "debater_bull": { "tokens": 6170, "cost_usd": 0.0193, "calls": 4 },
-    "master":       { "tokens": 7343, "cost_usd": 0.0156, "calls": 2 }
-  }
+  "pending": [{
+    "action": "buy", "symbol": "RELIANCE", "quantity": 0, "confidence": 0.78,
+    "reasoning": "Strong bull consensus", "style": "swing", "product": "CNC"
+  }]
 }
 ```
 
 ### POST /task
-
-Trigger agent tasks manually.
-
-**Request:**
 ```json
 { "type": "research" }
-{ "type": "screen", "symbols": ["RELIANCE", "TCS", "INFY"] }
+{ "type": "screen", "symbols": ["RELIANCE", "TCS"] }
 { "type": "debate", "symbols": ["RELIANCE"] }
 { "type": "analyze", "symbols": ["RELIANCE", "TCS"] }
 ```
+Response: `{ "status": "accepted", "task_id": "a1b2c3d4e5f6" }`
 
-**Response:**
-```json
-{ "status": "accepted", "task_id": "a1b2c3d4e5f6" }
-```
-
-### POST /trade/approve/{idx}
-
-Approve pending trade at index. Triggers ExecutionAgent → LLM sizing → PaperExecutor.
-
-**Response (success):**
-```json
-{
-  "signal": { "action": "buy", "symbol": "RELIANCE", ... },
-  "success": true,
-  "order_id": "PAPER-A1B2C3D4",
-  "broker": "paper",
-  "message": "BUY 8 RELIANCE @ ₹1,250.75",
-  "timestamp": "2026-03-16T10:05:00"
-}
-```
-
-**Response (failure):**
-```json
-{ "error": "no pending signal at index" }
-```
-
-### POST /trade/reject/{idx}
-
-Reject pending trade at index. Removes from queue.
-
-**Response:**
-```json
-{ "status": "rejected", "symbol": "RELIANCE" }
-```
+### POST /positions/{symbol}/close
+Closes entire position. If auto_execute=false, queues for approval.
+Response: `{ "status": "queued_for_approval", "symbol": "RELIANCE", "qty": 10 }`
 
 ---
 
 ## WebSocket — ws://localhost:8080/ws
 
-Real-time event stream. Connect on mount, auto-reconnect on disconnect.
+Events streamed in real-time:
 
-### Event Format
-
-```json
-{
-  "event": "agent:debate:argument",
-  "data": { ... },
-  "time": "2026-03-16T10:15:00.123456"
-}
-```
-
-### Events
-
-| Event | When | Data |
+| Event | Data | When |
 |---|---|---|
-| `agent:research:complete` | Research finished | `{ symbols: string[], findings: object[] }` |
-| `agent:screened` | Screening finished | `{ symbols: string[], picks: object[] }` |
-| `agent:debate:argument` | Bull or bear argued | `{ position: DebatePosition, symbol: string }` |
-| `agent:debate:complete` | Debate judged | `{ symbol: string, consensus: ConsensusResult }` |
-| `agent:analysis:complete` | Analysis finished | `{ symbols: string[], signals: Signal[] }` |
-| `agent:trade:requested` | Master wants to trade | `{ signal: TradeSignal }` |
-| `agent:trade:executed` | Trade filled | `{ result: TradeResult }` |
-| `agent:trade:pending` | Trade queued for approval | `{ signal: TradeSignal, pending_count: number }` |
-| `schedule:phase_change` | Market phase changed | `{ phase: string, old_phase: string, time: string }` |
+| `agent:research:complete` | `{ symbols, findings }` | Research done |
+| `agent:screened` | `{ symbols, picks }` | Screening done |
+| `agent:debate:argument` | `{ position, symbol }` | Bull/bear argued |
+| `agent:debate:complete` | `{ symbol, consensus }` | Debate judged |
+| `agent:analysis:complete` | `{ symbols, signals }` | Analysis done |
+| `agent:trade:requested` | `{ signal }` | Master wants to trade |
+| `agent:trade:executed` | `{ result }` | Trade filled |
+| `agent:trade:pending` | `{ signal, pending_count }` | Trade queued |
+| `schedule:phase_change` | `{ phase, old_phase, time }` | Market phase changed |
 
 ---
 
-## Agent Pipeline (What Happens When)
+## Dashboard Pages
 
-```
-09:00 IST  PRE_MARKET
-  → ResearchAgent scans MoneyControl + ET RSS feeds
-  → LLM (Groq llama-3.3-70b) summarizes into insights
-  → event: agent:research:complete
+### 1. Overview `/`
+- Status bar: phase, market open/closed, WS connection
+- Agent grid with pause/resume buttons
+- Debate arena (center)
+- Ledger: portfolio, pending trades, cost (right sidebar)
 
-09:15 IST  OPENING
-  → ScreenerAgent fetches quotes for ~120 stocks from Groww
-  → Quantitative filter (sort by |change%|)
-  → LLM (Groq llama-3.1-8b) ranks top 5
-  → event: agent:screened
+### 2. Portfolio `/portfolio`
+- Capital + P&L (compute equity curve from trades[].capital_after)
+- Positions table with close buttons (POST /positions/{sym}/close)
+- Trade log with filters (date, symbol, action)
+- Win rate, avg P&L stats
 
-  → For top 3 picks, MasterAgent starts debates:
-    → DebateAgent (bull) argues using Z.AI glm-5
-    → event: agent:debate:argument (bull, round 0)
-    → DebateAgent (bear) argues using Z.AI glm-5
-    → event: agent:debate:argument (bear, round 0)
-    → Bull rebuttal (round 1)
-    → event: agent:debate:argument (bull, round 1)
-    → Bear rebuttal (round 1)
-    → event: agent:debate:argument (bear, round 1)
-    → ConsensusEngine judges
-    → event: agent:debate:complete
+### 3. Debates `/debates`
+- List of debated symbols (from /timeline?type=agent:debate:complete)
+- Click → full debate transcript (4 arguments, verdict, scores)
+- URL: `/debates?symbol=RELIANCE`
 
-09:30 IST  MORNING
-  → If consensus is BUY/SELL with >60% confidence:
-    → AnalysisAgent runs sentiment analysis via Z.AI glm-4.7
-    → event: agent:analysis:complete
-    → MasterAgent makes final decision via Z.AI glm-5
-    → event: agent:trade:requested
-    → ExecutionAgent queues for approval
-    → event: agent:trade:pending
+### 4. Agents `/agents`
+- Agent cards with state, profile stats, last activity
+- Pause/resume toggle per agent
+- Memory viewer: profile (L0), session (L1), history (L2)
+- LLM cost per agent
+- URL: `/agents?name=debater_bull`
 
-  → Dashboard shows pending trade → User clicks APPROVE
-    → POST /trade/approve/0
-    → ExecutionAgent sizes position via Groq gpt-oss-120b
-    → PaperExecutor simulates fill
-    → event: agent:trade:executed
+### 5. Watchlist `/watchlist`
+- Current symbols with add/remove
+- Search to add new symbols
+- Trigger screen/debate from watchlist
 
-12:00 IST  AFTERNOON
-  → Re-screen for afternoon opportunities
-  → Same debate cycle
+### 6. Timeline `/timeline`
+- Event log with filters (type, date range)
+- Real-time via WebSocket + historical via GET /timeline
+- URL: `/timeline?type=agent:debate:argument&from=2026-03-17T09:00`
 
-14:00 IST  CLOSING
-  → No new positions
+### 7. Settings `/settings`
+- All config values from GET /config
+- Toggle switches for force_active, auto_execute
+- Sliders for debate_rounds, min_confidence
+- Number inputs for budget values
+- Save → POST /config
 
-15:30 IST  POST_MARKET
-  → Daily report generated
-  → Agent memories saved to disk
-```
+---
 
-## Agent → LLM Model Mapping
+## Agent → LLM Mapping
 
-| Agent | Provider | Model | Speed | Purpose |
-|---|---|---|---|---|
-| Master | Z.AI | glm-5 | — | Final trading decisions |
-| Debaters (bull+bear) | Z.AI | glm-5 | — | Argumentation with evidence |
-| Analyst | Z.AI | glm-4.7 | — | Sentiment analysis |
-| Researcher | Groq | llama-3.3-70b | 280 t/s | News summarization |
-| Screener | Groq | llama-3.1-8b | 560 t/s | Stock ranking |
-| Executor | Groq | gpt-oss-120b | 500 t/s | Position sizing |
+| Agent | Provider | Model | Purpose |
+|---|---|---|---|
+| Master | Z.AI | glm-5 | Final trading decisions |
+| Debaters | Z.AI | glm-5 | Argumentation |
+| Analyst | Z.AI | glm-4.7 | Sentiment analysis |
+| Researcher | Groq | llama-3.3-70b | News summarization |
+| Screener | Groq | llama-3.1-8b | Stock ranking |
+| Executor | Groq | gpt-oss-120b | Position sizing |
 
 ## Market Phases
 
-| Phase | IST Time | Dashboard Behavior |
+| Phase | IST | Dashboard Behavior |
 |---|---|---|
-| `closed` | 16:00-09:00 | Gray/dim, show "Market Closed" |
-| `pre_market` | 09:00-09:15 | Yellow pulse, research activity |
-| `opening` | 09:15-09:30 | Green, screening + debates starting |
-| `morning` | 09:30-12:00 | Full green, trades happening |
-| `afternoon` | 12:00-14:00 | Green, re-screening |
+| `closed` | 16:00-09:00 | Dim, "Market Closed" |
+| `pre_market` | 09:00-09:15 | Yellow, research activity |
+| `opening` | 09:15-09:30 | Green, screening + debates |
+| `morning` | 09:30-12:00 | Full active, trades |
+| `afternoon` | 12:00-14:00 | Active, re-screening |
 | `closing` | 14:00-15:30 | Orange, winding down |
 | `post_market` | 15:30-16:00 | Yellow, daily report |
 
-Force active mode (`AGENT_FORCE_ACTIVE=true`) makes the scheduler pretend it's always MORNING — useful for weekend testing.
-
-## Pages the Dashboard Should Have
-
-### 1. Overview (current `/` page)
-- System status, agent grid, market phase bar
-- Debate arena in center
-- Ledger (portfolio, pending, trades, cost) on right
-
-### 2. Portfolio `/portfolio`
-- Capital chart over time (use trades[] timestamps for equity curve)
-- Open positions table with current value, unrealized P&L
-- Closed trades history with filters (date range, symbol, action)
-- Win rate, avg P&L per trade stats
-
-### 3. Debates `/debates`
-- List of all debated symbols (from consensus results)
-- Click symbol → full debate transcript (all 4 arguments)
-- Verdict badge, confidence meter, bull/bear score bars
-- URL: `/debates/RELIANCE` shows that debate
-
-### 4. Signals `/signals`
-- All analysis signals in a table/grid
-- Filter by symbol, signal type, confidence range
-- Color-coded value bars (-1 to +1)
-
-### 5. Agents `/agents`
-- Per-agent detail page with stats from memory
-- Memory profile: total tasks, win rate, avg confidence
-- Recent history: last 20 events per agent
-- LLM cost per agent (bar chart)
-- URL: `/agents/debater_bull`
-
-### 6. Research `/research`
-- Research findings timeline
-- Source quality (which RSS feeds produce useful insights)
-- Symbols mentioned in news
-
-### 7. Settings `/settings`
-- View current config (capital, budget, models per agent)
-- Toggle force_active mode
-- Toggle auto_execute mode
-- These would need new API endpoints (currently config is read-only)
-
-## URL Params for State
-
-- `/debates?symbol=RELIANCE` — pre-select symbol
-- `/portfolio?from=2026-03-01&to=2026-03-16` — date range filter
-- `/signals?symbol=TCS&min_confidence=0.7` — filters
-- `/agents?name=debater_bull` — select agent
-
 ## Data Refresh Strategy
 
-| Data | Method | Interval | Notes |
-|---|---|---|---|
-| Status | React Query poll | 3s | Lightweight |
-| Portfolio | React Query poll | 5s | Medium |
-| Pending | React Query poll | 3s | Need fast approval UX |
-| Consensus | React Query (on demand) | 5s | Only when viewing debate |
-| Signals | React Query poll | 10s | Less frequent |
-| Live events | WebSocket | Real-time | Debates, trades, phase changes |
+| Data | Method | Interval |
+|---|---|---|
+| Status | React Query | 3s |
+| Portfolio | React Query | 5s |
+| Pending | React Query | 3s |
+| Agents list | React Query | 5s |
+| Signals | React Query | 10s |
+| Timeline | React Query + WS | 10s + real-time |
+| Config | React Query | 30s (rarely changes) |
+| Watchlist | React Query | 10s |
+| Quotes | React Query | 5s (when viewing) |
+| Consensus | On demand | When user selects symbol |
 
 ## State Management
 
-Current: React Query for server state (good).
-
-Recommended additions:
-- URL search params via `useSearchParams()` for filters/selections
-- Local state (useState) for UI-only state (selected tab, expanded cards)
-- No need for zustand/jotai — React Query + URL params covers it
-
-## Design Language
-
-Current: Dark monospace terminal aesthetic with `font-mono`, `tracking-widest`, `text-[10px]`. Keep this — it fits the trading terminal vibe.
-
-Colors:
-- `text-bull` / `bg-bull` — green for buy/bullish
-- `text-bear` / `bg-bear` — red for sell/bearish
-- `text-accent` — highlight/active
-- `text-muted-foreground` — secondary text
-
-### GET /research
-
-All research findings grouped by symbol.
-
-```json
-{
-  "research:RELIANCE": [
-    {
-      "headline": "Reliance Q3 earnings beat estimates",
-      "impact": "bullish",
-      "significance": "high",
-      "horizon": "short_term",
-      "reasoning": "Revenue up 15% YoY, Jio subscriber base growing"
-    }
-  ],
-  "research:SBI": [...]
-}
-```
-
-### GET /agents/{name}/profile
-
-Agent memory profile (L0 stats). Name = `researcher`, `screener`, `debater_bull`, `debater_bear`, `analyst`, `executor_agent`, `master`.
-
-```json
-{
-  "total_debates": 47,
-  "total_debates_won": 28,
-  "avg_confidence": 0.72
-}
-```
-
-### GET /agents/{name}/history?type=debate&symbol=RELIANCE&limit=20
-
-Agent event history (L2 — append-only log). All params optional.
-
-```json
-[
-  {
-    "type": "debate",
-    "timestamp": "2026-03-16T10:15:00",
-    "agent": "debater_bull",
-    "symbol": "RELIANCE",
-    "stance": "bull",
-    "confidence": 0.82,
-    "round": 0,
-    "argument_preview": "Reliance presents a compelling..."
-  }
-]
-```
-
----
-
-## What's NOT in the API Yet
-
-1. **Config mutation** — no POST endpoint for changing settings at runtime (force_active, auto_execute, budget). Dashboard would need to show these as read-only until we add `POST /config`
-2. **Equity curve history** — compute client-side from `trades[].capital_after` timestamps
+- **Server state**: React Query (polling + cache invalidation on mutations)
+- **URL state**: `useSearchParams()` for filters, selected agent/symbol
+- **UI state**: `useState` for tabs, expanded cards, modals
+- No zustand needed — React Query + URL params covers it
