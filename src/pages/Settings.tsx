@@ -1,6 +1,8 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { motion } from "framer-motion";
 import { useConfig, useSaveConfig } from "@/hooks/use-trading-data";
+import { api } from "@/lib/api";
+import { useQueryClient } from "@tanstack/react-query";
 import type { ConfigData, TradingMode } from "@/lib/api";
 
 const TRADING_MODES: { value: TradingMode; label: string }[] = [
@@ -264,6 +266,76 @@ export default function Settings() {
               />
             </div>
           </div>
+
+          {/* Danger Zone */}
+          <DangerZone />
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function DangerZone() {
+  const [resetCapital, setResetCapital] = useState(500000);
+  const [confirming, setConfirming] = useState(false);
+  const [resetting, setResetting] = useState(false);
+  const queryClient = useQueryClient();
+
+  const handleReset = useCallback(async () => {
+    setResetting(true);
+    await api.resetSystem(resetCapital);
+    queryClient.invalidateQueries();
+    setResetting(false);
+    setConfirming(false);
+  }, [resetCapital, queryClient]);
+
+  return (
+    <div>
+      <div className="font-mono text-[10px] tracking-widest text-bear mb-3">DANGER ZONE</div>
+      <div className="border border-bear/30 rounded-sm bg-bear/5 px-4 py-4">
+        <div className="flex items-center justify-between">
+          <div>
+            <div className="font-mono text-[12px] font-bold text-foreground">Hard Reset</div>
+            <div className="font-mono text-[10px] text-muted-foreground mt-0.5">
+              Flush all positions, trades, P&L, agent memories, and shared state. Start fresh.
+            </div>
+          </div>
+          {!confirming ? (
+            <motion.button
+              whileTap={{ scale: 0.96 }}
+              onClick={() => setConfirming(true)}
+              className="font-mono text-[10px] font-bold tracking-widest bg-bear/10 text-bear border border-bear/30 px-4 py-1 rounded-sm hover:bg-bear/20 transition-colors"
+            >
+              RESET
+            </motion.button>
+          ) : (
+            <div className="flex items-center gap-2">
+              <div className="flex items-center gap-1">
+                <span className="font-mono text-[9px] text-muted-foreground">Capital:</span>
+                <input
+                  type="number"
+                  value={resetCapital}
+                  onChange={(e) => setResetCapital(Number(e.target.value))}
+                  className="font-mono text-[11px] bg-background border border-border rounded-sm px-2 py-0.5 w-28 text-right tabular-nums text-foreground focus:outline-none focus:border-accent"
+                />
+              </div>
+              <motion.button
+                whileTap={{ scale: 0.96 }}
+                onClick={handleReset}
+                disabled={resetting}
+                className="font-mono text-[10px] font-bold tracking-widest bg-bear text-white px-3 py-1 rounded-sm hover:bg-bear/90 transition-colors disabled:opacity-50"
+              >
+                {resetting ? "RESETTING..." : "CONFIRM RESET"}
+              </motion.button>
+              <motion.button
+                whileTap={{ scale: 0.96 }}
+                onClick={() => setConfirming(false)}
+                className="font-mono text-[10px] tracking-widest text-muted-foreground px-2 py-1 hover:text-foreground transition-colors"
+              >
+                CANCEL
+              </motion.button>
+            </div>
+          )}
         </div>
       </div>
     </div>

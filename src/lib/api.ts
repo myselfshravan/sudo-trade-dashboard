@@ -90,14 +90,24 @@ export interface Trade {
   fill_price: number;
   timestamp: string;
   capital_after: number;
+  pnl?: number;
 }
 
 export interface PortfolioData {
   capital: number;
   positions: Record<string, Position>;
+  positions_value: number;
+  total_value: number;
+  initial_capital: number;
+  realized_pnl: number;
+  unrealized_pnl: number;
+  total_pnl: number;
   pnl: number;
+  pnl_pct: number;
   trades: Trade[];
   total_trades: number;
+  total_sells: number;
+  win_rate: number;
 }
 
 export interface Signal {
@@ -138,6 +148,7 @@ export interface PendingSignal {
   style: string;
   signals_used: string[];
   metadata: Record<string, unknown>;
+  product?: string;
 }
 
 export interface WSEvent {
@@ -227,6 +238,17 @@ export const api = {
   // Positions
   closePosition: (symbol: string) =>
     fetch(`${API_BASE}/positions/${encodeURIComponent(symbol)}/close`, { method: "POST" }).then((r) => r.json()),
+
+  // Research
+  getResearch: () => fetchJSON<Record<string, unknown>>("/research"),
+
+  // Reset
+  resetSystem: (capital?: number) =>
+    fetch(`${API_BASE}/reset`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ capital: capital ?? 500000 }),
+    }).then((r) => r.json()),
 };
 
 export function createWS(onEvent: (event: WSEvent) => void): WebSocket | null {

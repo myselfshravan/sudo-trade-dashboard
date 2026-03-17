@@ -102,6 +102,7 @@ export function Ledger() {
               </div>
               <div className="font-mono text-[10px] text-muted-foreground mb-1.5 tabular-nums">
                 QTY: {signal.quantity} · CONF: {(signal.confidence * 100).toFixed(0)}% · {signal.style.toUpperCase()}
+                {signal.product && <span className="ml-1 text-accent">· {signal.product}</span>}
               </div>
               <p className="font-mono text-[10px] text-muted-foreground mb-2 leading-relaxed line-clamp-2">
                 {signal.reasoning}

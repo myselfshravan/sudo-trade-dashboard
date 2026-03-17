@@ -32,27 +32,21 @@ export default function Portfolio() {
     return true;
   });
 
-  // Compute stats
-  const winTrades = trades.filter((t, i) => {
-    if (i === 0) return false;
-    return t.capital_after > trades[i - 1].capital_after;
-  });
-  const winRate = trades.length > 1 ? ((winTrades.length / (trades.length - 1)) * 100).toFixed(0) : "—";
-
   return (
     <div className="h-full flex flex-col overflow-hidden">
       {/* Summary Cards */}
-      <div className="grid grid-cols-5 gap-px border-b border-border bg-border">
+      <div className="grid grid-cols-6 gap-px border-b border-border bg-border">
         {[
           { label: "CAPITAL", value: portfolio ? formatINR(portfolio.capital) : "—" },
           {
-            label: "P&L",
-            value: portfolio ? `${portfolio.pnl >= 0 ? "+" : ""}${formatINR(portfolio.pnl)}` : "—",
+            label: "TOTAL P&L",
+            value: portfolio ? `${portfolio.pnl >= 0 ? "+" : ""}${formatINR(portfolio.pnl)} (${portfolio.pnl_pct >= 0 ? "+" : ""}${portfolio.pnl_pct}%)` : "—",
             color: portfolio ? (portfolio.pnl >= 0 ? "text-bull" : "text-bear") : "",
           },
-          { label: "POSITIONS", value: portfolio ? String(Object.keys(portfolio.positions).length) : "—" },
+          { label: "POSITIONS VALUE", value: portfolio ? formatINR(portfolio.positions_value) : "—" },
+          { label: "TOTAL VALUE", value: portfolio ? formatINR(portfolio.total_value) : "—" },
           { label: "TOTAL TRADES", value: portfolio ? String(portfolio.total_trades) : "—" },
-          { label: "WIN RATE", value: `${winRate}%` },
+          { label: "WIN RATE", value: portfolio ? `${portfolio.win_rate}%` : "—" },
         ].map((card) => (
           <div key={card.label} className="bg-background px-4 py-3">
             <div className="font-mono text-[10px] tracking-widest text-muted-foreground">{card.label}</div>
@@ -149,6 +143,7 @@ export default function Portfolio() {
                   <th className="text-left px-4 py-1.5 font-normal">ACTION</th>
                   <th className="text-right px-4 py-1.5 font-normal">QTY</th>
                   <th className="text-right px-4 py-1.5 font-normal">PRICE</th>
+                  <th className="text-right px-4 py-1.5 font-normal">P&L</th>
                   <th className="text-right px-4 py-1.5 font-normal">CAPITAL</th>
                 </tr>
               </thead>
@@ -170,6 +165,9 @@ export default function Portfolio() {
                       </td>
                       <td className="px-4 py-1.5 text-right tabular-nums text-foreground">{trade.quantity}</td>
                       <td className="px-4 py-1.5 text-right tabular-nums text-foreground">{formatINR(trade.fill_price)}</td>
+                      <td className={`px-4 py-1.5 text-right tabular-nums ${trade.pnl != null ? (trade.pnl >= 0 ? "text-bull" : "text-bear") : "text-muted-foreground"}`}>
+                        {trade.pnl != null ? `${trade.pnl >= 0 ? "+" : ""}${formatINR(trade.pnl)}` : "—"}
+                      </td>
                       <td className="px-4 py-1.5 text-right tabular-nums text-muted-foreground">{formatINR(trade.capital_after)}</td>
                     </motion.tr>
                   ))}
