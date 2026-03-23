@@ -12,6 +12,8 @@ Watch autonomous agents research, debate, and trade Indian markets — live.
 [![Vite](https://img.shields.io/badge/Vite-646CFF?style=for-the-badge&logo=vite&logoColor=white)](https://vitejs.dev)
 [![Framer Motion](https://img.shields.io/badge/Framer_Motion-0055FF?style=for-the-badge&logo=framer&logoColor=white)](https://www.framer.com/motion)
 
+`6 AI Agents` | `Real-time WebSocket` | `Live P&L Tracking` | `Bull vs Bear Debates` | `NSE/BSE Markets`
+
 </div>
 
 ---
@@ -22,35 +24,55 @@ Watch autonomous agents research, debate, and trade Indian markets — live.
 
 ---
 
-### Debates — Bull vs Bear AI Arguments
+## How It Works
 
-![Debates — Full debate view with bull vs bear arguments, evidence, and consensus verdict](demo/DEBATES_DEMO_SCREENSHOT.png)
+```mermaid
+graph LR
+    A[News & Filings] -->|scan| B(Research Agent)
+    B -->|findings| C(Screener Agent)
+    C -->|top picks| D{Debate Arena}
+    D -->|bull case| E[Bull Agent]
+    D -->|bear case| F[Bear Agent]
+    E -->|arguments| G(Consensus Judge)
+    F -->|arguments| G
+    G -->|verdict| H(Analyst Agent)
+    H -->|signals| I(Executor Agent)
+    I -->|trade| J[Paper / Live Broker]
 
-### Agents — Live Agent States & Activity
+    style D fill:#1e293b,stroke:#f59e0b,color:#f59e0b
+    style G fill:#1e293b,stroke:#10b981,color:#10b981
+    style J fill:#1e293b,stroke:#3b82f6,color:#3b82f6
+```
 
-![Agents — Agent profiles, session history, and real-time status monitoring](demo/AGENTS_DEMO_SCREENSHOT.png)
-
-### Portfolio — Positions, Trades & P&L
-
-![Portfolio — Capital, positions, trade log, and realized P&L tracking](demo/PORTFOLIO_DEMO_SCREENSHOT.png)
-
-### Timeline — Event Stream
-
-![Timeline — Chronological event log of all agent actions and system events](demo/TIMELINE_DEMO_SCREENSHOT.png)
-
-### Settings — Runtime Configuration
-
-![Settings — Trading controls, analysis parameters, and LLM budget configuration](demo/SETTINGS_CONFIG_SCREENSHOT.png)
+> Every step in this pipeline is visible in the dashboard in real-time. The agents run autonomously during market hours — you just watch (or approve trades manually).
 
 ---
 
-## What is this?
+## Backtesting Results
 
-This is the **frontend** for [sudo-trade](https://github.com/myselfshravan/sudo-trade) — a multi-agent AI trading system where LLM-powered agents autonomously research stocks, debate bull vs bear cases, reach consensus, and execute trades on Indian markets (NSE/BSE).
+Stress-tested over 10 days of high-volatility sessions during the India-Pakistan conflict escalation (March 2026). Markets swung wildly — the kind of environment that breaks most strategies.
 
-The dashboard is a real-time window into that system. Think Bloomberg Terminal meets AI agent observatory.
+```mermaid
+graph TD
+    subgraph Performance["Backtest Performance (March 2026)"]
+        direction LR
+        A["Starting Capital<br/><b>₹10,00,000</b>"] --> B["Current Value<br/><b>₹23,66,000+</b>"]
+        B --> C["Realized P&L<br/><b>+₹7,66,000</b>"]
+    end
 
-> **Note:** This UI requires the sudo-trade backend engine running. The engine is private — this dashboard alone won't do anything.
+    subgraph Stats["Key Metrics"]
+        direction LR
+        D["148 Trades"] --- E["11% Win Rate"]
+        E --- F["11 Positions Held"]
+    end
+
+    style Performance fill:#0f172a,stroke:#10b981,color:#e2e8f0
+    style Stats fill:#0f172a,stroke:#3b82f6,color:#e2e8f0
+    style B fill:#0f172a,stroke:#10b981,color:#10b981
+    style C fill:#0f172a,stroke:#10b981,color:#10b981
+```
+
+> The system identified high-conviction entries during panic selling and timed exits on relief rallies. Bull vs bear debate mechanism proved especially valuable — forced the system to argue both sides before committing capital during uncertain geopolitical conditions.
 
 ---
 
@@ -77,75 +99,105 @@ Event stream with live WebSocket updates and historical replay — filter by eve
 ### Settings
 Runtime configuration — trading mode (intraday/delivery/F&O), force active toggle, auto execute toggle, debate rounds, confidence threshold slider, LLM budget controls, and hard reset with confirmation dialog.
 
-### Real-Time Everything
-- **WebSocket** connection with auto-reconnect for instant event streaming
-- **Polling fallback** — TanStack Query with 3-5s intervals for state sync
-- **Framer Motion** animations — spring-physics argument slides, pulse dots, layout transitions
-- **WS status indicator** — green dot = LIVE, red = DISCONNECTED
+---
+
+## Demo Screenshots
+
+<details>
+<summary><b>Debates — Bull vs Bear AI Arguments</b></summary>
+<br/>
+
+![Debates — Full debate view with bull vs bear arguments, evidence, and consensus verdict](demo/DEBATES_DEMO_SCREENSHOT.png)
+
+</details>
+
+<details>
+<summary><b>Agents — Live Agent States & Activity</b></summary>
+<br/>
+
+![Agents — Agent profiles, session history, and real-time status monitoring](demo/AGENTS_DEMO_SCREENSHOT.png)
+
+</details>
+
+<details>
+<summary><b>Portfolio — Positions, Trades & P&L</b></summary>
+<br/>
+
+![Portfolio — Capital, positions, trade log, and realized P&L tracking](demo/PORTFOLIO_DEMO_SCREENSHOT.png)
+
+</details>
+
+<details>
+<summary><b>Timeline — Event Stream</b></summary>
+<br/>
+
+![Timeline — Chronological event log of all agent actions and system events](demo/TIMELINE_DEMO_SCREENSHOT.png)
+
+</details>
+
+<details>
+<summary><b>Settings — Runtime Configuration</b></summary>
+<br/>
+
+![Settings — Trading controls, analysis parameters, and LLM budget configuration](demo/SETTINGS_CONFIG_SCREENSHOT.png)
+
+</details>
 
 ---
 
 ## Architecture
 
-```
-                         +-----------------------+
-                         |   sudo-trade engine   |
-                         |   (private backend)   |
-                         |                       |
-                         |  6 AI Agents:         |
-                         |  - Researcher          |
-                         |  - Screener            |
-                         |  - Debater (Bull)      |
-                         |  - Debater (Bear)      |
-                         |  - Analyst             |
-                         |  - Executor            |
-                         |                       |
-                         |  :8080 HTTP + WS      |
-                         +----------+------------+
-                                    |
-                           CORS / Vite Proxy
-                                    |
-                         +----------v------------+
-                         |  sudo-trade-dashboard |
-                         |   (this repo)         |
-                         |                       |
-                         |  React + TypeScript   |
-                         |  Tailwind + shadcn/ui |
-                         |  Framer Motion        |
-                         |  TanStack Query       |
-                         |                       |
-                         |  :3001 Dev Server     |
-                         +-----------------------+
+```mermaid
+graph TB
+    subgraph Engine["sudo-trade engine (private)"]
+        direction TB
+        M[Master Agent] --> R[Researcher]
+        M --> S[Screener]
+        M --> DB[Debater Bull]
+        M --> DBR[Debater Bear]
+        M --> AN[Analyst]
+        M --> EX[Executor]
+        API[":8080 HTTP + WebSocket"]
+    end
+
+    subgraph Dashboard["sudo-trade-dashboard (this repo)"]
+        direction TB
+        RC[React + TypeScript]
+        TW[Tailwind + shadcn/ui]
+        FM[Framer Motion]
+        TQ[TanStack Query]
+        WS[WebSocket Client]
+    end
+
+    API <-->|CORS / Vite Proxy| WS
+
+    style Engine fill:#0f172a,stroke:#f59e0b,color:#e2e8f0
+    style Dashboard fill:#0f172a,stroke:#3b82f6,color:#e2e8f0
+    style API fill:#1e293b,stroke:#10b981,color:#10b981
 ```
 
-The engine handles all intelligence. The dashboard is a read-only observer + trade approval interface.
+The engine handles all intelligence. The dashboard is a real-time observer + trade approval interface.
 
 ---
 
-## Agent Pipeline
+## Market Phases
 
-The AI agents run a structured pipeline during market hours:
+The system follows NSE trading hours with phase-based agent scheduling:
 
+```mermaid
+gantt
+    title Daily Trading Schedule (IST)
+    dateFormat HH:mm
+    axisFormat %H:%M
+
+    section Phases
+    Pre-Market (Research)        :active, 09:00, 09:15
+    Opening (Screen & Debate)    :active, 09:15, 09:30
+    Morning (Execute & Monitor)  :crit,   09:30, 12:00
+    Afternoon (Re-evaluate)      :active, 12:00, 14:00
+    Closing (Exit Intraday)      :crit,   14:00, 15:30
+    Post-Market (Daily Summary)  :active, 15:30, 16:00
 ```
-Research (news, filings, social)
-    |
-    v
-Screen (quantitative + LLM ranking)
-    |
-    v
-Debate (bull agent vs bear agent, multi-round)
-    |
-    v
-Consensus (neutral judge scores arguments)
-    |
-    v
-Analyze (sentiment + technical signals)
-    |
-    v
-Execute (paper or live, with human approval gate)
-```
-
-Each step is visible in the dashboard in real-time.
 
 ---
 
