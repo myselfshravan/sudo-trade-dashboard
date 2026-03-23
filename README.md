@@ -16,6 +16,12 @@ Watch autonomous agents research, debate, and trade Indian markets — live.
 
 ---
 
+![Dashboard — AI agents debating bull vs bear case with live consensus scoring](demo/screenshot_1.png)
+
+![Dashboard — Full debate view with agent arguments, evidence, and verdict](demo/screenshot_2.png)
+
+---
+
 ### Debates — Bull vs Bear AI Arguments
 
 ![Debates — Full debate view with bull vs bear arguments, evidence, and consensus verdict](demo/DEBATES_DEMO_SCREENSHOT.png)
