@@ -16,9 +16,25 @@ Watch autonomous agents research, debate, and trade Indian markets — live.
 
 ---
 
-![Dashboard — AI agents debating bull vs bear case with live consensus scoring](demo/screenshot_1.png)
+### Debates — Bull vs Bear AI Arguments
 
-![Dashboard — Full debate view with agent arguments, evidence, and verdict](demo/screenshot_2.png)
+![Debates — Full debate view with bull vs bear arguments, evidence, and consensus verdict](demo/DEBATES_DEMO_SCREENSHOT.png)
+
+### Agents — Live Agent States & Activity
+
+![Agents — Agent profiles, session history, and real-time status monitoring](demo/AGENTS_DEMO_SCREENSHOT.png)
+
+### Portfolio — Positions, Trades & P&L
+
+![Portfolio — Capital, positions, trade log, and realized P&L tracking](demo/PORTFOLIO_DEMO_SCREENSHOT.png)
+
+### Timeline — Event Stream
+
+![Timeline — Chronological event log of all agent actions and system events](demo/TIMELINE_DEMO_SCREENSHOT.png)
+
+### Settings — Runtime Configuration
+
+![Settings — Trading controls, analysis parameters, and LLM budget configuration](demo/SETTINGS_CONFIG_SCREENSHOT.png)
 
 ---
 
