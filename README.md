@@ -203,6 +203,8 @@ gantt
 
 ## Tech Stack
 
+### Dashboard (this repo)
+
 | Layer | Tech |
 |---|---|
 | Framework | React 18, TypeScript 5.8 |
@@ -213,6 +215,54 @@ gantt
 | Charts | Recharts 2 |
 | Icons | Lucide React |
 | Testing | Vitest, Playwright, Testing Library |
+
+### Engine (private)
+
+The brain behind the dashboard. Built from scratch — no trading frameworks, no boilerplate.
+
+<div align="center">
+
+[![Python](https://img.shields.io/badge/Python_3.13-3776AB?style=for-the-badge&logo=python&logoColor=white)](https://python.org)
+[![asyncio](https://img.shields.io/badge/asyncio-FFD43B?style=for-the-badge&logo=python&logoColor=306998)](https://docs.python.org/3/library/asyncio.html)
+[![Claude](https://img.shields.io/badge/Claude_Opus_4-CC785C?style=for-the-badge&logo=anthropic&logoColor=white)](https://anthropic.com)
+[![Firebase](https://img.shields.io/badge/Firestore-039BE5?style=for-the-badge&logo=firebase&logoColor=FFCA28)](https://firebase.google.com)
+[![MCP](https://img.shields.io/badge/MCP_Server-000000?style=for-the-badge&logo=anthropic&logoColor=white)](https://modelcontextprotocol.io)
+
+</div>
+
+| Layer | Tech | Details |
+|---|---|---|
+| **Runtime** | Python 3.13, `uv` | Async-first, zero framework overhead |
+| **Architecture** | Plugin system + EventBus | Everything swappable — brokers, LLMs, strategies, agents |
+| **AI Agents** | 6 autonomous agents | Research → Screen → Debate → Consensus → Analyze → Execute |
+| **LLM** | Per-agent routing | Different model/provider/key per agent (Claude, GPT, Gemini, local) |
+| **Orchestration** | MCP (Model Context Protocol) | Claude Code drives the engine conversationally via stdio |
+| **Brokers** | Groww (data), Kite (execution) | Multi-broker: one for market data, another for orders |
+| **Persistence** | Firestore + local JSON | Paper state survives crashes, syncs across devices |
+| **API** | aiohttp HTTP + WebSocket | 30+ endpoints, real-time event streaming |
+| **Backtesting** | EventBus replay | Same strategy code runs live and in backtest — zero changes |
+| **Cost Control** | Per-agent LLM budgets | Daily limits, per-model pricing, auto-gating on exhaustion |
+| **Scheduling** | IST market phases | 6 phases, NSE holiday calendar, auto skip weekends |
+| **Testing** | pytest + pytest-asyncio | 62 tests — agents, brokers, backtester, events |
+| **CI** | GitHub Actions | Lint (ruff) + test on every push |
+
+<details>
+<summary><b>Engine by the numbers</b></summary>
+<br/>
+
+```
+6   autonomous AI agents with distinct roles
+30+ API endpoints (HTTP + WebSocket)
+62  automated tests
+6   market phases with IST scheduling
+2   broker integrations (Groww data, Kite execution)
+4   trade actions (BUY, SELL, SHORT, COVER)
+∞   LLM providers (any OpenAI-compatible endpoint)
+```
+
+The engine is ~7,000 lines of Python. No Django, no FastAPI, no trading libraries. Pure asyncio + aiohttp + a custom plugin/event system. Every component — brokers, data providers, analyzers, LLM clients, strategies, executors, interfaces — implements a Protocol and registers as a plugin. Swap anything without touching the rest.
+
+</details>
 
 ---
 
@@ -288,15 +338,23 @@ Market phases: `pre_market` | `opening` | `morning` | `afternoon` | `closing` | 
 
 #### GET `/portfolio`
 
-Capital, positions, realized P&L, trade history.
+Capital, positions, P&L breakdown, trade history with per-trade P&L.
 
 ```json
 {
   "capital": 1039921.18,
   "positions": {
-    "LUPIN": { "qty": 122, "avg_price": 2289.07 }
+    "LUPIN": { "qty": 122, "avg_price": 2289.07 },
+    "INFY": { "qty": -50, "avg_price": 1580.00 }
   },
-  "pnl": 566578.78,
+  "positions_value": 200565.54,
+  "total_value": 1240486.72,
+  "initial_capital": 500000.0,
+  "realized_pnl": 566578.78,
+  "unrealized_pnl": 0,
+  "total_pnl": 740486.72,
+  "pnl": 740486.72,
+  "pnl_pct": 148.1,
   "trades": [
     {
       "order_id": "PAPER-A1B2C3D4",
@@ -304,11 +362,14 @@ Capital, positions, realized P&L, trade history.
       "action": "BUY",
       "quantity": 21,
       "fill_price": 2285.80,
+      "pnl": 0,
       "timestamp": "2026-03-16T14:30:45.123456",
       "capital_after": 451998.20
     }
   ],
-  "total_trades": 66
+  "total_trades": 148,
+  "total_sells": 66,
+  "win_rate": 58.3
 }
 ```
 
@@ -375,6 +436,8 @@ Debate verdict for a specific stock. Contains full bull/bear argument history.
 ```
 
 Verdicts: `strong_buy` | `buy` | `hold` | `sell` | `strong_sell`
+
+> Positions can have negative `qty` for short positions (e.g. `{"qty": -50, "avg_price": 1580.00}`).
 
 ---
 
@@ -454,6 +517,59 @@ Approve pending trade at index for execution.
 #### POST `/trade/reject/{idx}`
 
 Reject pending trade at index.
+
+---
+
+#### GET/POST `/config`
+
+Read or update runtime configuration (trading mode, budgets, thresholds).
+
+```json
+{
+  "TRADING_MODE": "equity_intraday",
+  "AGENT_FORCE_ACTIVE": true,
+  "AGENT_AUTO_EXECUTE": false,
+  "AGENT_DEBATE_ROUNDS": 2,
+  "AGENT_DAILY_BUDGET_USD": 50.0,
+  "AGENT_MIN_CONFIDENCE": 0.6
+}
+```
+
+---
+
+#### Watchlist CRUD
+
+| Method | Endpoint | Description |
+|---|---|---|
+| `GET` | `/watchlist` | Get current watchlist symbols |
+| `POST` | `/watchlist` | Set entire watchlist `{"symbols": [...]}` |
+| `PUT` | `/watchlist/{symbol}` | Add symbol to watchlist |
+| `DELETE` | `/watchlist/{symbol}` | Remove symbol from watchlist |
+
+---
+
+#### Agent Inspection
+
+| Method | Endpoint | Description |
+|---|---|---|
+| `GET` | `/agents` | All agents with state + profile |
+| `GET` | `/agents/{name}/profile` | Agent's cumulative stats |
+| `GET` | `/agents/{name}/history` | Event log (filterable by `?type=&symbol=&limit=`) |
+| `GET` | `/agents/{name}/session` | Current session state + messages |
+| `POST` | `/agents/{name}/pause` | Pause an agent |
+| `POST` | `/agents/{name}/resume` | Resume a paused agent |
+
+---
+
+#### Other Endpoints
+
+| Method | Endpoint | Description |
+|---|---|---|
+| `GET` | `/timeline` | Event timeline (filterable by `?type=&from=&to=&limit=`) |
+| `GET` | `/quotes?symbols=X,Y` | Live quotes from broker |
+| `GET` | `/research` | Latest research findings |
+| `POST` | `/positions/{symbol}/close` | Close a position (SELL for long, COVER for short) |
+| `POST` | `/reset` | Hard reset — clear all trades, positions, P&L `{"capital": 500000}` |
 
 ---
 
