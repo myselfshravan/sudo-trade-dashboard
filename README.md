@@ -54,25 +54,28 @@ The dashboard is a real-time window into that system. Think Bloomberg Terminal m
 
 ---
 
-## Features
+## Pages
 
-### System Pulse — Left Panel
-- **Agent state monitoring** — see each AI agent (researcher, screener, debater, analyst, executor) with live status indicators and animated pulse dots
-- **Market phase tracker** — visual 7-phase progress bar following NSE trading hours (Pre-Market → Opening → Morning → Afternoon → Closing → Post-Market → Closed)
-- **Active debates** — accent-colored tags showing which stocks are currently being debated
+### Overview
+Real-time debate arena with system pulse sidebar, live bull vs bear arguments, consensus verdicts, and trade ledger — the main command center during market hours.
 
-### Debate Arena — Center Panel
-- **Live bull vs bear arguments** — watch AI agents argue for and against a stock in real-time with multi-round rebuttals
-- **Confidence meter** — vertical bar chart showing bull/bear score ratio with spring-physics animations
-- **Evidence tags** — each argument backed by specific evidence (FDA clearances, earnings data, sector trends)
-- **Consensus verdict** — final AI judge decision (strong_buy / buy / hold / sell / strong_sell) with confidence score and reasoning
-- **Symbol tabs** — switch between multiple concurrent debates
+### Portfolio
+Capital summary cards (P&L, positions value, total trades, win rate), current holdings with quick close buttons, full trade log with symbol/action/price filtering, and LLM cost meter showing daily budget usage.
 
-### Ledger — Right Panel
-- **Live portfolio** — capital, positions, P&L with INR currency formatting
-- **Pending trade queue** — approve or reject AI-generated trade signals with one tap
-- **LLM cost tracker** — daily budget usage bar showing spend across all agents
-- **Trade log** — scrollable history of executed trades
+### Debates
+Detailed debate transcripts — browse all debated stocks via symbol tabs, see verdict bar (BUY/SELL/HOLD with confidence %), bull and bear arguments with round numbers, evidence tags, and final consensus reasoning.
+
+### Agents
+Multi-agent inspection dashboard — live state indicators per agent (running, idle, error), LLM cost per agent (USD, tokens, calls), pause/resume controls, session state with conversation history, and time-series event logs.
+
+### Watchlist
+Custom stock tracking — add symbols, run batch actions (SCREEN ALL, RESEARCH ALL, DEBATE ALL, ANALYZE ALL), per-symbol action buttons on hover, draggable card grid.
+
+### Timeline
+Event stream with live WebSocket updates and historical replay — filter by event type (research, debate, trades, phase changes) and date range, color-coded event types with raw JSON payloads.
+
+### Settings
+Runtime configuration — trading mode (intraday/delivery/F&O), force active toggle, auto execute toggle, debate rounds, confidence threshold slider, LLM budget controls, and hard reset with confirmation dialog.
 
 ### Real-Time Everything
 - **WebSocket** connection with auto-reconnect for instant event streaming
