@@ -157,7 +157,7 @@ graph TB
         M --> DBR[Debater Bear]
         M --> AN[Analyst]
         M --> EX[Executor]
-        API[":8080 HTTP + WebSocket"]
+        API[":8008 HTTP + WebSocket"]
     end
 
     subgraph Dashboard["sudo-trade-dashboard (this repo)"]
@@ -247,7 +247,7 @@ Set `VITE_API_URL` in `.env` to point to your engine instance, or the Vite proxy
 <details>
 <summary><h2>Engine API Reference</h2></summary>
 
-The dashboard consumes the trading engine HTTP API at `http://localhost:8080`.
+The dashboard consumes the trading engine HTTP API at `http://localhost:8008`.
 
 ### HTTP Endpoints
 
@@ -459,7 +459,7 @@ Reject pending trade at index.
 
 ### WebSocket `/ws`
 
-Real-time event stream. Connect to `ws://localhost:8080/ws`.
+Real-time event stream. Connect to `ws://localhost:8008/ws`.
 
 All events follow this shape:
 ```json
