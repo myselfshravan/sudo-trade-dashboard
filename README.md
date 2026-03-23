@@ -276,24 +276,6 @@ The engine is ~7,000 lines of Python. No Django, no FastAPI, no trading librarie
 
 ---
 
-## Setup
-
-```bash
-# Clone
-git clone https://github.com/myselfshravan/sudo-trade-dashboard.git
-cd sudo-trade-dashboard
-
-# Install
-bun install   # or npm install
-
-# Dev server (port 3001)
-bun dev       # or npm run dev
-```
-
-Set `VITE_API_URL` in `.env` to point to your engine instance, or the Vite proxy will route `/api/*` to the configured target.
-
----
-
 <details>
 <summary><h2>Engine API Reference</h2></summary>
 
